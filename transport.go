@@ -8,21 +8,21 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
+	//"time"
 
-	"github.com/go-kit/kit/circuitbreaker"
+	//"github.com/go-kit/kit/circuitbreaker"
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/tracing/opentracing"
+	//"github.com/go-kit/kit/tracing/opentracing"
 	httptransport "github.com/go-kit/kit/transport/http"
 	"github.com/gorilla/mux"
-	stdopentracing "github.com/opentracing/opentracing-go"
+	//stdopentracing "github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sony/gobreaker"
+	//"github.com/sony/gobreaker"
 	"golang.org/x/net/context"
 )
 
 // MakeHTTPHandler mounts the endpoints into a REST-y HTTP handler.
-func MakeHTTPHandler(ctx context.Context, e Endpoints, imagePath string, logger log.Logger, tracer stdopentracing.Tracer) *mux.Router {
+func MakeHTTPHandler(ctx context.Context, e Endpoints, imagePath string, logger log.Logger) *mux.Router {
 	r := mux.NewRouter().StrictSlash(false)
 	options := []httptransport.ServerOption{
 		httptransport.ServerErrorLogger(logger),
@@ -35,59 +35,78 @@ func MakeHTTPHandler(ctx context.Context, e Endpoints, imagePath string, logger 
 	// GET /tags            Tags
 	// GET /health		Health Check
 
+	//ctx,
+	//circuitbreaker.Gobreaker(gobreaker.NewCircuitBreaker(gobreaker.Settings{
+	//	Name:    "List",
+	//	Timeout: 30 * time.Second,
+	//}))
+
+	//append(options, httptransport.ServerBefore(opentracing.FromHTTPRequest(tracer, "GET /catalogue", logger)))...,
+
 	r.Methods("GET").Path("/catalogue").Handler(httptransport.NewServer(
-		ctx,
-		circuitbreaker.Gobreaker(gobreaker.NewCircuitBreaker(gobreaker.Settings{
-			Name:    "List",
-			Timeout: 30 * time.Second,
-		}))(e.ListEndpoint),
+		e.ListEndpoint,
 		decodeListRequest,
 		encodeListResponse,
-		append(options, httptransport.ServerBefore(opentracing.FromHTTPRequest(tracer, "GET /catalogue", logger)))...,
+		append(options, httptransport.ServerBefore())...,
 	))
+
+	//ctx,
+	//circuitbreaker.Gobreaker(gobreaker.NewCircuitBreaker(gobreaker.Settings{
+	//	Name:    "Count",
+	//	Timeout: 30 * time.Second,
+	//}))
+	//append(options, httptransport.ServerBefore(opentracing.FromHTTPRequest(tracer, "GET /catalogue/size", logger)))...,
 	r.Methods("GET").Path("/catalogue/size").Handler(httptransport.NewServer(
-		ctx,
-		circuitbreaker.Gobreaker(gobreaker.NewCircuitBreaker(gobreaker.Settings{
-			Name:    "Count",
-			Timeout: 30 * time.Second,
-		}))(e.CountEndpoint),
+		e.CountEndpoint,
 		decodeCountRequest,
 		encodeResponse,
-		append(options, httptransport.ServerBefore(opentracing.FromHTTPRequest(tracer, "GET /catalogue/size", logger)))...,
+		append(options, httptransport.ServerBefore())...,
 	))
+	//ctx,
+	//circuitbreaker.Gobreaker(gobreaker.NewCircuitBreaker(gobreaker.Settings{
+	//	Name:    "Get",
+	//	Timeout: 30 * time.Second,
+	//}))
+	//append(options, httptransport.ServerBefore(opentracing.FromHTTPRequest(tracer, "GET /catalogue/{id}", logger)))...,
+
 	r.Methods("GET").Path("/catalogue/{id}").Handler(httptransport.NewServer(
-		ctx,
-		circuitbreaker.Gobreaker(gobreaker.NewCircuitBreaker(gobreaker.Settings{
-			Name:    "Get",
-			Timeout: 30 * time.Second,
-		}))(e.GetEndpoint),
+		e.GetEndpoint,
 		decodeGetRequest,
 		encodeGetResponse, // special case, this one can have an error
-		append(options, httptransport.ServerBefore(opentracing.FromHTTPRequest(tracer, "GET /catalogue/{id}", logger)))...,
+		append(options, httptransport.ServerBefore())...,
 	))
+
+	//ctx,
+	//circuitbreaker.Gobreaker(gobreaker.NewCircuitBreaker(gobreaker.Settings{
+	//	Name:    "Tags",
+	//	Timeout: 30 * time.Second,
+	//}))
+	//append(options, httptransport.ServerBefore(opentracing.FromHTTPRequest(tracer, "GET /tags", logger)))...
+
 	r.Methods("GET").Path("/tags").Handler(httptransport.NewServer(
-		ctx,
-		circuitbreaker.Gobreaker(gobreaker.NewCircuitBreaker(gobreaker.Settings{
-			Name:    "Tags",
-			Timeout: 30 * time.Second,
-		}))(e.TagsEndpoint),
+		e.TagsEndpoint,
 		decodeTagsRequest,
 		encodeResponse,
-		append(options, httptransport.ServerBefore(opentracing.FromHTTPRequest(tracer, "GET /tags", logger)))...,
+		append(options, httptransport.ServerBefore())...,
 	))
+
 	r.Methods("GET").PathPrefix("/catalogue/images/").Handler(http.StripPrefix(
 		"/catalogue/images/",
 		http.FileServer(http.Dir(imagePath)),
 	))
+
+	//circuitbreaker.Gobreaker(gobreaker.NewCircuitBreaker(gobreaker.Settings{
+	//	Name:    "Health",
+	//	Timeout: 30 * time.Second,
+	//}))
+	//ctx,
+	//append(options, httptransport.ServerBefore(opentracing.FromHTTPRequest(tracer, "GET /health", logger)))...,
+
 	r.Methods("GET").PathPrefix("/health").Handler(httptransport.NewServer(
-		ctx,
-		circuitbreaker.Gobreaker(gobreaker.NewCircuitBreaker(gobreaker.Settings{
-			Name:    "Health",
-			Timeout: 30 * time.Second,
-		}))(e.HealthEndpoint),
+		e.HealthEndpoint,
 		decodeHealthRequest,
 		encodeHealthResponse,
-		append(options, httptransport.ServerBefore(opentracing.FromHTTPRequest(tracer, "GET /health", logger)))...,
+		append(options, httptransport.ServerBefore())...,
 	))
 	r.Handle("/metrics", promhttp.Handler())
 	return r

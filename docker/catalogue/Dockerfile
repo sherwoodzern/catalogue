@@ -1,4 +1,4 @@
-FROM golang:1.7
+FROM golang:1.9.2
 
 RUN mkdir /app
 COPY . /go/src/github.com/microservices-demo/catalogue/
@@ -9,6 +9,6 @@ RUN cd /go/src/github.com/microservices-demo/catalogue && gvt restore
 
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o /app/main github.com/microservices-demo/catalogue/cmd/cataloguesvc
 
-CMD ["/app/main", "-port=80"]
+CMD ["/app/main", "-port=8081"]
 
 EXPOSE 80

@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strings"
+	//"strings"
 	"syscall"
 
 	"github.com/go-kit/kit/log"
-	stdopentracing "github.com/opentracing/opentracing-go"
-	zipkin "github.com/openzipkin/zipkin-go-opentracing"
+	//stdopentracing "github.com/opentracing/opentracing-go"
+	//zipkin "github.com/openzipkin/zipkin-go-opentracing"
 
-	"net"
+	//"net"
 	"net/http"
 
 	"path/filepath"
@@ -21,7 +21,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/microservices-demo/catalogue"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/weaveworks/common/middleware"
+	//"github.com/weaveworks/common/middleware"
 	"golang.org/x/net/context"
 )
 
@@ -46,9 +46,10 @@ func main() {
 		port   = flag.String("port", "8081", "Port to bind HTTP listener") // TODO(pb): should be -addr, default ":8081"
 		images = flag.String("images", "./images/", "Image path")
 		dsn    = flag.String("DSN", "catalogue_user:default_password@tcp(catalogue-db:3306)/socksdb", "Data Source Name: [username[:password]@][protocol[(address)]]/dbname")
-		zip    = flag.String("zipkin", os.Getenv("ZIPKIN"), "Zipkin address")
+		//zip    = flag.String("zipkin", os.Getenv("ZIPKIN"), "Zipkin address")
 	)
 	flag.Parse()
+
 
 	fmt.Fprintf(os.Stderr, "images: %q\n", *images)
 	abs, err := filepath.Abs(*images)
@@ -66,11 +67,11 @@ func main() {
 	var logger log.Logger
 	{
 		logger = log.NewLogfmtLogger(os.Stderr)
-		logger = log.NewContext(logger).With("ts", log.DefaultTimestampUTC)
-		logger = log.NewContext(logger).With("caller", log.DefaultCaller)
+		logger = log.With(logger,"ts", log.DefaultTimestampUTC)
+		logger = log.With(logger,"caller", log.DefaultCaller)
 	}
 
-	var tracer stdopentracing.Tracer
+	/*var tracer stdopentracing.Tracer
 	{
 		if *zip == "" {
 			tracer = stdopentracing.NoopTracer{}
@@ -84,7 +85,7 @@ func main() {
 			localAddr := conn.LocalAddr().(*net.UDPAddr)
 			host := strings.Split(localAddr.String(), ":")[0]
 			defer conn.Close()
-			logger := log.NewContext(logger).With("tracer", "Zipkin")
+			logger := log.With(logger,"tracer", "Zipkin")
 			logger.Log("addr", zip)
 			collector, err := zipkin.NewHTTPCollector(
 				*zip,
@@ -103,7 +104,7 @@ func main() {
 			}
 		}
 		stdopentracing.InitGlobalTracer(tracer)
-	}
+	}*/
 
 	// Data domain.
 	db, err := sqlx.Open("mysql", *dsn)
@@ -127,23 +128,33 @@ func main() {
 	}
 
 	// Endpoint domain.
-	endpoints := catalogue.MakeEndpoints(service, tracer)
+	//endpoints := catalogue.MakeEndpoints(service, tracer)
+
+	// Removed the parameter of tracer
+	endpoints := catalogue.MakeEndpoints(service)
 
 	// HTTP router
-	router := catalogue.MakeHTTPHandler(ctx, endpoints, *images, logger, tracer)
+	//router := catalogue.MakeHTTPHandler(ctx, endpoints, *images, logger, tracer)
 
-	httpMiddleware := []middleware.Interface{
+	// Removed the parameter of tracer
+	router := catalogue.MakeHTTPHandler(ctx, endpoints, *images, logger)
+
+	// Added the following
+	handler := router
+
+	/*httpMiddleware := []middleware.Interface{
 		middleware.Instrument{
 			Duration:     HTTPLatency,
 			RouteMatcher: router,
 		},
-	}
+	}*/
 
 	// Handler
-	handler := middleware.Merge(httpMiddleware...).Wrap(router)
+	//handler := middleware.Merge(httpMiddleware...).Wrap(router)
 
 	// Create and launch the HTTP server.
 	go func() {
+
 		logger.Log("transport", "HTTP", "port", *port)
 		errc <- http.ListenAndServe(":"+*port, handler)
 	}()
